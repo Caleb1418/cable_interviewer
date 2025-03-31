@@ -11,6 +11,12 @@ import Link from "next/link";
 import { toast } from "sonner";
 import FormField from "./FormField";
 import { useRouter } from "next/navigation";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
+import { auth } from "@/firebase/client";
+import { signIn, signUp } from "@/lib/actions/auth.action";
 
 const authFormSchema = (type: FormType) => {
   return z.object({
@@ -21,7 +27,7 @@ const authFormSchema = (type: FormType) => {
 };
 
 const AuthForm = ({ type }: { type: FormType }) => {
-  const router = useRouter()
+  const router = useRouter();
   const formSchema = authFormSchema(type);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -33,14 +39,43 @@ const AuthForm = ({ type }: { type: FormType }) => {
   });
 
   // 2. Define a submit handler.
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       if (type === "sign-in") {
+        const { email, password } = values;
+        const userCredential = await signInWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+        const idToken = await userCredential.user.getIdToken();
+        if (!idToken) {
+          toast.error("Something went wrong, Sign in failed");
+          return;
+        }
+        await signIn({ email, idToken });
         toast.success("Sign in successful");
-        router.push("/Home")
+        router.push("/");
       } else {
+        const { name, email, password } = values;
+        const userCredentials = await createUserWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+        const result = await signUp({
+          uid: userCredentials.user.uid,
+          name: name!,
+          email,
+          password,
+        });
+
+        if (!result?.success) {
+          toast.error(result?.error.toString());
+          return;
+        }
         toast.success("Account created successfully, Please sign in");
-        router.push("/sign-in")
+        router.push("/sign-in");
       }
     } catch (error) {
       console.log(error);
@@ -69,20 +104,20 @@ const AuthForm = ({ type }: { type: FormType }) => {
                 label="Name"
               />
             )}
-              <FormField
-                control={form.control}
-                name="email"
-                placeholder="Your email address"
-                label="Email"
-                type="email"
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                placeholder="Enter your password"
-                label="Password"
-                type="password"
-              />
+            <FormField
+              control={form.control}
+              name="email"
+              placeholder="Your email address"
+              label="Email"
+              type="email"
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              placeholder="Enter your password"
+              label="Password"
+              type="password"
+            />
             <Button type="submit" className="btn">
               {isSignIn ? "Sign In" : "Create an Account"}
             </Button>
