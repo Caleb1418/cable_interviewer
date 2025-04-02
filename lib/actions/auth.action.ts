@@ -42,24 +42,25 @@ export async function signUp(params: SignUpParams) {
 
 export async function signIn(params: SignInParams) {
     const { email, idToken } = params;
+  
     try {
-        const userRecord = await auth.getUserByEmail(email);
-        if (!userRecord) {
-            return {
-                success: false,
-                error: 'User does not exist'
-            }
-        }
-        await setSessionCookie(idToken);
-    } catch (error) {
-        console.log(error);
+      const userRecord = await auth.getUserByEmail(email);
+      if (!userRecord)
         return {
-            success: false,
-            error: 'Something went wrong, failed to log into account'
-        }
+          success: false,
+          message: "User does not exist. Create an account.",
+        };
+  
+      await setSessionCookie(idToken);
+    } catch (error: any) {
+      console.log("");
+  
+      return {
+        success: false,
+        message: "Failed to log into account. Please try again.",
+      };
     }
-
-}
+  }
 
 export async function setSessionCookie(idToken: string) {
     const cookieStore = await cookies();
@@ -69,31 +70,40 @@ export async function setSessionCookie(idToken: string) {
     cookieStore.set('session', sessionCookie, {
         maxAge: FIVE_DAYS,
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        //secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
     })
 }
 
+
 export async function getCurrentUser(): Promise<User | null> {
     const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session')?.value;
+  
+    const sessionCookie = cookieStore.get("session")?.value;
     if (!sessionCookie) return null;
-
+  
     try {
-        const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
-        const userRecord = await db.collection('users').doc(decodedClaims.uid).get();
-        if (!userRecord.exists) return null;
-        return{
-            ...userRecord.data(),
-            id: decodedClaims.id,
-        } as User
+      const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
+  
+      // get user info from db
+      const userRecord = await db
+        .collection("users")
+        .doc(decodedClaims.uid)
+        .get();
+      if (!userRecord.exists) return null;
+  
+      return {
+        ...userRecord.data(),
+        id: userRecord.id,
+      } as User;
     } catch (error) {
-        console.log(error);
-        return null;
+      console.log(error);
+  
+      // Invalid or expired session
+      return null;
     }
-
-}
+  }
 
 export async function isAuthenticated(){
     const user = await getCurrentUser();
