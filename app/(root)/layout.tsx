@@ -3,7 +3,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import React from 'react'
-
+import { Analytics } from "@vercel/analytics/react"
 const RootLayout = async ({children}: {children: React.ReactNode}) => {
 
   const isUserAuthenticated = await isAuthenticated();
@@ -17,6 +17,8 @@ const RootLayout = async ({children}: {children: React.ReactNode}) => {
         </Link>
       </nav>
       {children}
+      <Analytics />
+
     </div>
   )
 }
